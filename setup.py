@@ -6,5 +6,4 @@ setup(name='fern',
       version='0.0.1',
       author='John Mackenzie',
       author_email='john@nineteeneightd.com',
-      install_requires=['hy>=0.9.12',
-                        'paramiko>=1.12'])
+      install_requires=['hy>=0.9.12'])
