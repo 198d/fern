@@ -31,19 +31,24 @@
                                 [part expr])])))
         -exprs))
 
-    (with-gensyms [host command wait-results connect execute hostname green red bold]
+    (with-gensyms [exit connect hostname execute wait-results green red bold command host]
       `(do
-        (import [fern.hosts [connect :as ~connect hostname :as ~hostname]]
+        (import [sys [exit :as ~exit]]
+                [fern.hosts [connect :as ~connect hostname :as ~hostname]]
                 [fern.execution [execute :as ~execute wait-results :as ~wait-results]]
                 [fern.output [green :as ~green red :as ~red bold :as ~bold]])
         (for [~command [~@(rewrite-body exprs)]]
-          (print (.format "Executing `{}` against {} hosts" (~bold ~command) (~bold (len ~hosts))))
+          (print (.format "> Executing `{}` against {} hosts" (~bold ~command) (~bold (len ~hosts))))
           (~wait-results
             (list-comp (~execute (~connect ~host) ~command) [~host ~hosts])
             (fn [result]
               (if (.success? result)
-                (print (~green "\u2713") (~hostname (. result host)))
-                (print (~red "\u2717") (~hostname (. result host)))))))))))
+                (print "  " (~green "\u2713") (~hostname (. result host)))
+                (do
+                  (print "  " (~red "\u2717") (~hostname (. result host)))
+                  (for [line (. result stdout)]
+                    (apply print ["  " line] {"end" ""}))
+                  (~exit 1))))))))))
 
 
 (defmacro with-hosts [&rest args]
