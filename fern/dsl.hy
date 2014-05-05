@@ -42,8 +42,8 @@
             (list-comp (~execute (~connect ~host) ~command) [~host ~hosts])
             (fn [result]
               (if (.success? result)
-                (print (~green "\u2713") (~hostname (. result connection host)))
-                (print (~red "\u2717") (~hostname (. result connection host)))))))))))
+                (print (~green "\u2713") (~hostname (. result host)))
+                (print (~red "\u2717") (~hostname (. result host)))))))))))
 
 
 (defmacro with-hosts [&rest args]

@@ -1,4 +1,4 @@
-(import [subprocess [Popen PIPE STDOUT]])
+(import [subprocess [Popen DEVNULL PIPE STDOUT]])
 
 
 (defn filter-hosts [hosts &optional roles tags]
@@ -44,25 +44,21 @@
   [[--init--
     (fn [self host]
       (setv self.host host)
+      (setv self.control-path "/tmp/%h.sock")
       (apply (. (super Connection self) --init--)
-        [["ssh" "-qt" "-o" "StrictHostKeyChecking=no" (hostname host)
-          "/bin/bash" "--norc"]]
-        {"stdout" PIPE "stderr" STDOUT "stdin" PIPE "bufsize" 0
-         "universal_newlines" true})
+        [(.-ssh-command self ["-M"])]
+        {"stdout" DEVNULL "stderr" DEVNULL "stdin" PIPE})
       None)]
 
-   [--iter--
-    (fn [self]
-      (iter (. self stdout)))]
+   [execute
+    (fn [self command]
+      (let [[popen (apply Popen
+                     [(.-ssh-command self [] [command])]
+                     {"stdout" PIPE "stderr" STDOUT "stdin" PIPE
+                      "universal_newlines" true})]]
+        (, (, (. popen stdin) (. popen stdout) (. popen stderr)) (. popen poll))))]
 
-   [write
-    (fn [self &rest args &kwargs kwargs]
-      (apply (. self stdin write) args kwargs))]
-
-   [read
-    (fn [self &rest args &kwargs kwargs]
-      (apply (. self stdout read) args kwargs))]
-
-   [readline
-    (fn [self &rest args &kwargs kwargs]
-      (apply (. self stdout readline) args kwargs))]])
+   [-ssh-command
+    (fn [self &optional [extra-options []] [extra-args []]]
+      (+ ["ssh"] ["-S" (. self control-path) "-o" "StrictHostKeyChecking=no"]
+         extra-options [(hostname (. self host))] extra-args))]])
