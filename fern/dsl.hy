@@ -24,21 +24,28 @@
               [fern.hosts [connect :as ~g!connect hostname :as ~g!hostname]]
               [fern.execution [execute :as ~g!execute wait-results :as ~g!wait-results]]
               [fern.output [green :as ~g!green red :as ~g!red bold :as ~g!bold]])
-      (let [[~g!command ~(rewrite-body body)] [~g!hosts ~(.get options :against)]]
-        (print (.format "> Executing `{}` against {} hosts" (~g!bold ~g!command) (~g!bold (len ~g!hosts))))
-        (~g!wait-results
-          (list-comp (~g!execute (~g!connect ~g!host) ~g!command) [~g!host ~g!hosts])
-          (fn [result]
-            (if (.success? result)
-              (print "  " (~g!green "\u2713") (~g!hostname (. result host)))
-              (do
-                (print "  " (~g!red "\u2717") (~g!hostname (. result host)))
-                (for [line (. result stdout)]
-                  (apply print ["  " line] {"end" ""}))
-                ; hy==0.10.0 defmacro/g! pukes on HyObjects that don't have a
-                ; `startswith` instance method (e.g. integers), slight hack to
-                ; avoid that, PR awaiting
-                (~g!exit (int "1"))))))))))
+      (let [[~g!command ~(rewrite-body body)] [~g!hosts ~(.get options :against 'nil)]
+            [~g!ready-fn (fn [result]
+                           (let [[hostname (~g!hostname (or (. result host) ["localhost"]))]]
+                             (if (.success? result)
+                               (print "  " (~g!green "\u2713") hostname)
+                               (do
+                                 (print "  " (~g!red "\u2717") hostname)
+                                 (for [line (. result stdout)]
+                                   (apply print ["  " line] {"end" ""}))
+                                 ; hy==0.10.0 defmacro/g! pukes on HyObjects that don't have a
+                                 ; `startswith` instance method (e.g. integers), slight hack to
+                                 ; avoid that, PR awaiting
+                                 (~g!exit (int "1"))))))]]
+        (if ~g!hosts
+          (do
+            (print (.format "> Executing `{}` against {} hosts" (~g!bold ~g!command) (~g!bold (len ~g!hosts))))
+            (~g!wait-results
+              (list-comp (~g!execute ~g!command (~g!connect ~g!host)) [~g!host ~g!hosts])
+              ~g!ready-fn))
+          (do
+            (print (.format "> Executing `{}` locally" (~g!bold ~g!command)))
+            (~g!wait-results [(~g!execute ~g!command)] ~g!ready-fn)))))))
 
 
 (defmacro/g! with-hosts [&rest args]

@@ -1,16 +1,22 @@
 (import [re]
         [time]
+        [shlex]
+        [subprocess [Popen STDOUT PIPE]]
         [fern.hosts [connect]])
 
 
 (defclass Result [object]
   [[--init--
-    (fn [self host stdout stderr poll-fn]
-      (setv self.host host)
+    (fn [self stdout stderr poll-fn &optional host]
       (setv self.stdout stdout)
       (setv self.stderr stderr)
       (setv self.poll-fn poll-fn)
+      (setv self.host host)
       None)]
+
+   [--str--
+    (fn [self]
+      (.read (. self stdout)))]
 
    [success?
     (fn [self]
@@ -35,11 +41,16 @@
   results)
 
 
-(defn execute [connection command]
-  (let [[(, pipes poll-fn) (.execute connection (prepare-command command))]
-        [(, stdin stdout stderr) pipes]]
-    (Result (. connection host) stdout stderr poll-fn)))
+(defn execute [command &optional connection]
+  (if connection
+    (let [[(, pipes poll-fn) (.execute connection (prepare-command command))]
+          [(, stdin stdout stderr) pipes]]
+      (Result stdout stderr poll-fn (. connection host)))
+    (let [[popen (apply Popen [(.split shlex (prepare-command command))]
+                              {"stdout" PIPE "stderr" STDOUT "stdin" PIPE
+                               "universal_newlines" true})]]
+      (Result (. popen stdout) (. popen stderr) (. popen poll)))))
 
 
 (defn prepare-command [command]
-  (.format "/bin/bash -c \"{}\"\n" (re.sub "([\"$`])" "\\\\\\1" command)))
+  (.format "/bin/bash -c \"{}\"" (re.sub "([\"$`])" "\\\\\\1" command)))
