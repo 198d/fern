@@ -53,4 +53,4 @@
 
 
 (defn prepare-command [command]
-  (.format "/bin/bash -c \"{}\"" (re.sub "([\"$`])" "\\\\\\1" command)))
+  (.format "/bin/bash -c \"{}\"" (re.sub "([\"`])" "\\\\\\1" command)))
