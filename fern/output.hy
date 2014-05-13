@@ -8,3 +8,7 @@
 
 (defn bold [text]
   (.format "\033[1m{}\033[0m" text))
+
+
+(defn cursor-up [&optional [lines 1]]
+  (.format "\033[{}A" lines))

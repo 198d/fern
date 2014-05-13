@@ -27,9 +27,10 @@
       (not (nil? (.poll-fn self))))]])
 
 
-(defn wait-results [results &optional [ready-fn (fn [&rest args])]]
+(defn wait-results [results &optional [ready-fn (fn [&rest args])] [tick-fn (fn [&rest args])]]
   (let [[finished []]]
     (while true
+      (tick-fn results)
       (for [result results]
         (if (and (.ready? result) (not (in result finished)))
           (do
@@ -38,6 +39,7 @@
       (if (= (len finished) (len results))
         (break)
         (.sleep time 0.0001))))
+  (tick-fn results)
   results)
 
 

@@ -39,6 +39,18 @@
             [~g!against ~(.get options :against 'nil)]
             [~g!once ~(.get options :once 'false)]
             [~g!hosts (if (and ~g!against ~g!once) (~g!sample ~g!against (int "1")) ~g!against)]
+            [~g!print-results (fn [results]
+                                (for [result results]
+                                  (let [[hostname (~g!hostname (or (. result host) ["local"]))]]
+                                    (if (.ready? result)
+                                      (if (.success? result)
+                                        (print "  " (~g!green "\u2713") hostname)
+                                        (print "  " (~g!red "\u2717") hostname))
+                                      (print "  " "\u25E6" hostname)))))]
+            [~g!tick-fn (fn [results]
+                          (import [fern.output [cursor-up]])
+                          (apply print [(cursor-up (len results)) "\r"] {"end" ""})
+                          (~g!print-results results))]
             [~g!ready-fn (fn [result]
                            (let [[hostname (~g!hostname (or (. result host) ["localhost"]))]]
                              (if (.success? result)
@@ -54,17 +66,14 @@
         (list
           (map
             (fn [command]
+              (print (.format "> Executing `{}`" (~g!bold command)))
               (if ~g!hosts
-                (do
-                  (print (.format "> Executing `{}` against {} hosts"
-                                  (~g!bold command) (~g!bold (len ~g!hosts))))
-                  (~g!wait-results
-                    (list-comp (~g!execute command (~g!connect ~g!host))
-                               [~g!host ~g!hosts])
-                    ~g!ready-fn))
-                (do
-                  (print (.format "> Executing `{}` locally" (~g!bold command)))
-                  (~g!wait-results [(~g!execute command)] ~g!ready-fn))))
+                (let [[results (list-comp (~g!execute command (~g!connect ~g!host)) [~g!host ~g!hosts])]]
+                  (~g!print-results results)
+                  (~g!wait-results results (fn [&rest args]) ~g!tick-fn))
+                (let [[results [(~g!execute command)]]]
+                  (~g!print-results results)
+                  (~g!wait-results results (fn [&rest args]) ~g!tick-fn))))
             ~g!commands))))))
 
 
