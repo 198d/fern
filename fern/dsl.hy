@@ -51,7 +51,11 @@
                                  ; `startswith` instance method (e.g. integers), slight hack to
                                  ; avoid that, PR awaiting
                                  (~g!exit (int "1"))))))]]
-        (list
+        (defclass ~g!ResultSet [list]
+          [[--str--
+            (fn [self]
+              (-> self flatten first str .strip))]])
+        (~g!ResultSet
           (map
             (fn [command]
               (if ~g!hosts
