@@ -4,10 +4,39 @@
         [hy.models.string [HyString]])
 
 
-(defmacro defhosts [name &rest host-defs]
-  `(def ~name (list-comp [(first host-def)
-                          (or (nth host-def 1) [])
-                          (or (nth host-def 2) {})] [host-def [~@host-defs]])))
+(defmacro/g! with-hosts [&rest args]
+  (let [[(, options body) (parse-args args)]]
+    (defn rewrite-body [body]
+      (let [[-body '()]]
+        (for [part body]
+          (.append -body (if (instance? HyList part)
+                           (cond [(= 'with-hosts (first part))
+                                  `(~@part :in ~g!hosts)]
+                                 [(= 'run (first part)) `(~@part :against ~g!hosts)]
+                                 [true (rewrite-body part)])
+                           part)))
+        -body))
+    (defn rewrite-where [where]
+      `(fn [host] ~where))
+    `(do
+      (import [pprint [pprint :as ~g!pprint]])
+      (let [[~g!hosts (list (filter ~(rewrite-where (.get options :where 'true))
+                                    ~(.get options :in)))]]
+        (if ~(.get options :show 'false)
+          (~g!pprint ~g!hosts))
+        ~@(rewrite-body body)))))
+
+
+(defmacro/g! provides? [&rest args]
+  `(do
+    (import [fern.hosts [provides? :as ~g!provides]])
+    (~g!provides ~@args)))
+
+
+(defmacro/g! tagged? [&rest args]
+  `(do
+    (import [fern.hosts [tagged? :as ~g!tagged]])
+    (~g!tagged ~@args)))
 
 
 (defmacro/g! run [&rest args]
@@ -70,29 +99,6 @@
                   (print (.format "> Executing `{}` locally" (~g!bold command)))
                   (~g!wait-results [(~g!execute command)] ~g!ready-fn))))
             ~g!commands))))))
-
-
-(defmacro/g! with-hosts [&rest args]
-  (let [[(, options body) (parse-args args {:in (fn [arg] `(+ ~@arg []))})]]
-    (defn rewrite-body [body]
-      (let [[-body '()]]
-        (for [part body]
-          (.append -body (if (instance? HyList part)
-                           (cond [(= 'with-hosts (first part))
-                                  `(~@part :in [~g!hosts])]
-                                 [(= 'run (first part)) `(~@part :against ~g!hosts)]
-                                 [true (rewrite-body part)])
-                           part)))
-        -body))
-    `(do
-      (import [fern.hosts [filter-hosts :as ~g!filter-hosts]]
-              [pprint [pprint :as ~g!pprint]])
-      (let [[~g!hosts (apply ~g!filter-hosts [~(.get options :in)]
-                                             {"roles" ~(.get options :providing '[])
-                                              "tags" ~(.get options :where '{})})]]
-        (if ~(.get options :show 'false)
-          (~g!pprint ~g!hosts))
-        ~@(rewrite-body body)))))
 
 
 (defn parse-args [args &optional [map-fns {}]]

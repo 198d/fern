@@ -1,31 +1,28 @@
 (import [subprocess [Popen DEVNULL PIPE STDOUT]])
 
 
-(defn filter-hosts [hosts &optional roles tags]
-  (list-comp host
-             [host hosts]
-             (and (provides? host roles)
-                  (tagged? host tags))))
-
-
 (defn hostname [host]
   (get host 0))
 
 
-(defn provides? [host match-roles]
-  (let [[[name roles tags] host]]
-    (or (not match-roles) (any (list-comp true
-                                          [role roles]
-                                          (in role match-roles))))))
+(defn roles [host]
+  (try
+    (get host 1)
+    (catch [e IndexError] [])))
 
 
-(defn tagged? [host match-tags]
-  (let [[[name roles tags] host]]
-    (or (not match-tags)
-        (and tags
-             (all (list-comp (= (first (rest item))
-                                (.get tags (first item)))
-                             [item (.items match-tags)]))))))
+(defn tags [host]
+  (try
+    (get host 2)
+    (catch [e IndexError] {})))
+
+
+(defn provides? [host role]
+  (any (list-comp true [-role (roles host)] (= -role role))))
+
+
+(defn tagged? [host key value]
+  (= (.get (tags host) key) value))
 
 
 (defn connect [host]
