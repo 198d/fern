@@ -11,7 +11,7 @@ their metadata.
 Getting Started
 ===============
 
-```hy
+```clojure
 (require fern.dsl)
 
 
