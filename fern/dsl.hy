@@ -5,7 +5,7 @@
 
 
 (defmacro/g! with-hosts [&rest args]
-  (let [[(, options body) (parse-args args)]]
+  (let [[(, options body) (parse-args args [:show])]]
     (defn rewrite-body [body]
       (let [[-body '()]]
         (for [part body]
@@ -40,7 +40,7 @@
 
 
 (defmacro/g! run [&rest args]
-  (let [[(, options body) (parse-args args)]]
+  (let [[(, options body) (parse-args args [:once])]]
     (defn rewrite-body [body]
       (let [[cwd (.get options :in)] [prefix (.get options :with)]]
         (defn parse-arg [option]
@@ -101,10 +101,12 @@
             ~g!commands))))))
 
 
-(defn parse-args [args &optional [map-fns {}]]
+(defn parse-args [args &optional [bools []] [map-fns {}]]
   (let [[iter-args (iter args)] [options {}] [body []]]
     (for [arg iter-args]
       (if (instance? HyKeyword arg)
-        (assoc options arg ((.get map-fns arg identity) (next iter-args)))
+        (if (in arg bools)
+          (assoc options arg 'true)
+          (assoc options arg ((.get map-fns arg identity) (next iter-args))))
         (.append body arg)))
     (, options body)))
